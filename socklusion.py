@@ -37,6 +37,7 @@ there is an exception. See the command help and docstrings for more.
 import os
 import sys
 import time
+import codecs
 import socket
 import optparse
 import traceback
@@ -51,6 +52,19 @@ DEFAULT_SOCKET_TIMEOUT = 5.0
 
 PYTHON = sys.executable
 CUR_FILE = os.path.abspath(__file__)
+
+
+if sys.version_info.major == 2:
+    ESCAPE_CODEC = 'string_escape'
+
+    def _binary(data):
+        return data
+
+elif sys.version_info.major == 3:
+    ESCAPE_CODEC = 'unicode_escape'
+
+    def _binary(data, _encoding=sys.getdefaultencoding()):
+        return data.encode(_encoding)
 
 
 def parse_args():
@@ -239,11 +253,10 @@ def _send_data_inner(data, host, port=None, send_only=None,
         if not data:
             break
         if response_path and not response_file:
-            response_file = open(response_path, 'wb')
+            response_file = open(response_path, 'wb', 0)
 
         if response_file:
             response_file.write(data)
-            response_file.flush()
 
     sock.shutdown(socket.SHUT_WR)
     sock.recv(1)  # wait for the empty read
@@ -260,9 +273,11 @@ def main():
 
     message = kwargs.pop('message', None)
     if message is not None:
-        message = message.decode('string_escape')
+        message = codecs.decode(message, ESCAPE_CODEC)
     else:
         message = sys.stdin.read()
+
+    message = _binary(message)
 
     mode = kwargs.pop('mode')
     if mode == 'parent':
